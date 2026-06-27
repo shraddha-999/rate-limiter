@@ -1,45 +1,62 @@
-# Rate Limiter
+# RateGuard — Distributed Rate Limiter
 
-Production-ready distributed Rate Limiter built with **FastAPI**, **Redis**, and **Python 3.12**. Implements three algorithms, Prometheus metrics, Grafana dashboards, hot-reload configuration, and user tiers — all deployable with a single `docker compose up`.
+A production-ready distributed rate limiter with a full-stack SaaS dashboard. Backend built with **FastAPI**, **Redis**, and **Python 3.12**. Frontend is a **React 19** dashboard with real-time charts, algorithm visualizations, and a request simulator.
+
+**Live Demo → [rate-limiter-silk.vercel.app](https://rate-limiter-silk.vercel.app/simulator)**
+
+---
+
+## What's Inside
+
+| Layer | Stack |
+|---|---|
+| **API** | FastAPI, Python 3.12, Uvicorn, asyncio |
+| **Rate Limiting** | 3 algorithms via atomic Lua scripts in Redis |
+| **Metrics** | Prometheus + Grafana dashboards |
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS, Recharts |
+| **State** | TanStack Query (server), Zustand (client) |
+| **Animations** | Framer Motion, shadcn/ui components |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Client Request                          │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      FastAPI Application                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  Auth        │  │  Logging     │  │  CORS                │  │
-│  │  Middleware  │  │  Middleware  │  │  Middleware           │  │
-│  └──────┬───────┘  └──────────────┘  └──────────────────────┘  │
-│         │                                                       │
-│  ┌──────▼───────────────────────────────────────────────────┐  │
-│  │                      Controllers                         │  │
-│  │  POST /rate-limit/check  │  /config CRUD  │  /health     │  │
-│  └──────┬───────────────────────────────────────────────────┘  │
-│         │                                                       │
-│  ┌──────▼───────────────────────────────────────────────────┐  │
-│  │                       Services                           │  │
-│  │  RateLimitService  │  ConfigService                      │  │
-│  └──────┬───────────────────┬───────────────────────────────┘  │
-│         │                   │                                   │
-│  ┌──────▼──────┐   ┌────────▼──────────────────────────────┐  │
-│  │  Algorithm  │   │           Repositories                │  │
-│  │  Factory    │   │  ConfigRepository  │  BaseRepository   │  │
-│  │  (Strategy) │   └──────────┬───────────────────────────┘  │
-│  │  ┌────────┐ │              │                               │  │
-│  │  │Fixed W.│ │   ┌──────────▼──────────────────────────┐  │  │
-│  │  │Sliding │ │   │     Storage Backend (DI swappable)  │  │  │
-│  │  │Token B.│ │   │  RedisRepository │ MemoryRepository │  │  │
-│  │  └────────┘ │   └──────────┬────────────────────────────┘  │
-│  └─────────────┘              │                               │
-└──────────────────────────────-┼───────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    RateGuard Dashboard                       │
+│         React 19 + TanStack Query + Zustand                 │
+│  Dashboard │ Simulator │ Config CRUD │ Algorithm Visualizer │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ REST (Axios, /api proxy)
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     FastAPI Application                      │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐  │
+│  │  Auth       │  │  Logging     │  │  CORS              │  │
+│  │  Middleware │  │  Middleware  │  │  Middleware         │  │
+│  └──────┬──────┘  └──────────────┘  └────────────────────┘  │
+│         │                                                    │
+│  ┌──────▼─────────────────────────────────────────────────┐  │
+│  │                     Controllers                        │  │
+│  │  POST /rate-limit/check  │  /config CRUD  │  /health   │  │
+│  └──────┬──────────────────────────────────────────────────┘  │
+│         │                                                    │
+│  ┌──────▼────────────────────────────────────────────────┐  │
+│  │                      Services                         │  │
+│  │  RateLimitService  │  ConfigService                   │  │
+│  └──────┬───────────────────┬────────────────────────────┘  │
+│         │                   │                               │
+│  ┌──────▼──────┐   ┌────────▼─────────────────────────┐   │
+│  │  Algorithm  │   │        Repositories               │   │
+│  │  Factory    │   │  ConfigRepo │ BaseRepository       │   │
+│  │  (Strategy) │   └──────────┬──────────────────────┘   │
+│  │  ┌────────┐ │              │                           │
+│  │  │Fixed W.│ │   ┌──────────▼──────────────────────┐  │
+│  │  │Sliding │ │   │  Storage Backend (DI swappable) │  │
+│  │  │Token B.│ │   │  RedisRepository │ MemoryRepo   │  │
+│  │  └────────┘ │   └──────────┬──────────────────────┘  │
+│  └─────────────┘              │                           │
+└─────────────────────────────-─┼───────────────────────────┘
                                 │
                     ┌───────────▼──────────┐
                     │        Redis         │
@@ -50,77 +67,139 @@ Production-ready distributed Rate Limiter built with **FastAPI**, **Redis**, and
 
 ---
 
+## Dashboard Pages
+
+| Page | Description |
+|---|---|
+| **Dashboard** | Live metrics cards, requests over time, allowed/blocked ratio |
+| **Request Simulator** | Fire 1–1000 requests, watch results in real-time, export CSV |
+| **Configurations** | Full CRUD for rate limit rules, tag management |
+| **Algorithm Visualizer** | Animated step-by-step view of all 4 algorithms |
+| **Redis Inspector** | Key pattern reference for all algorithm storage layouts |
+| **Metrics** | Parsed Prometheus metrics with bar chart distribution |
+| **Logs** | Persisted simulator history, searchable, filterable, exportable |
+| **API Docs** | Built-in curl examples with copy button, links to Swagger/ReDoc |
+| **Settings** | Theme (dark/light), refresh intervals, backend URL switcher |
+
+---
+
 ## Folder Structure
 
 ```
-rate_limiter/
-├── app/
-│   ├── main.py                   # FastAPI app factory & lifespan
-│   ├── dependencies.py           # DI container
+rate-limiter/
+├── app/                              # FastAPI backend
+│   ├── main.py                       # App factory & lifespan
 │   ├── controllers/
-│   │   ├── rate_limit_controller.py
-│   │   ├── config_controller.py
-│   │   └── health_controller.py
+│   │   ├── rate_limit_controller.py  # POST /rate-limit/check
+│   │   ├── config_controller.py      # CRUD /config
+│   │   └── health_controller.py      # GET /health, /metrics
 │   ├── services/
 │   │   ├── rate_limit_service.py
 │   │   └── config_service.py
 │   ├── repositories/
-│   │   ├── base_repository.py    # Abstract interface
-│   │   ├── redis_repository.py   # Production
-│   │   ├── memory_repository.py  # Dev / tests
+│   │   ├── redis_repository.py       # Production (Lua + evalsha)
+│   │   ├── memory_repository.py      # Dev / tests (Lua emulator)
 │   │   └── config_repository.py
 │   ├── algorithms/
-│   │   ├── base_limiter.py       # Abstract base
-│   │   ├── fixed_window.py
-│   │   ├── sliding_window.py
-│   │   ├── token_bucket.py
-│   │   └── factory.py            # Strategy pattern
+│   │   ├── fixed_window.py           # Redis HASH counter
+│   │   ├── sliding_window.py         # Redis ZSET log
+│   │   ├── token_bucket.py           # Redis HASH (tokens + ts)
+│   │   └── factory.py                # Strategy pattern
 │   ├── middleware/
-│   │   ├── auth_middleware.py
+│   │   ├── auth_middleware.py        # X-Admin-Key / X-API-Key
 │   │   └── logging_middleware.py
-│   ├── models/                   # Domain models
-│   ├── schemas/                  # Pydantic request/response
-│   ├── config/settings.py        # Pydantic-settings w/ hot reload
-│   ├── utils/
-│   │   ├── logger.py             # Structured JSON logging
-│   │   └── metrics.py            # Prometheus definitions
-│   └── exceptions/exceptions.py
+│   ├── models/                       # Domain dataclasses
+│   ├── schemas/                      # Pydantic request/response
+│   └── config/settings.py            # Pydantic-settings + hot reload
+│
+├── frontend/                         # React dashboard
+│   ├── src/
+│   │   ├── pages/                    # 9 pages (lazy-loaded)
+│   │   ├── components/
+│   │   │   ├── ui/                   # shadcn-style Radix components
+│   │   │   ├── charts/               # Recharts wrappers
+│   │   │   ├── algorithms/           # Animated visualizations
+│   │   │   └── shared/               # Sidebar, Header, MetricCard
+│   │   ├── services/                 # Axios API clients
+│   │   ├── store/                    # Zustand slices (auth, logs, settings)
+│   │   ├── types/                    # Shared TypeScript interfaces
+│   │   └── lib/utils.ts              # cn(), parsePrometheusMetrics(), downloadCSV()
+│   ├── crypto-polyfill.cjs           # Patches node:crypto for Vite 5 on Node < 19
+│   └── package.json
+│
 ├── tests/
-│   ├── conftest.py
 │   ├── unit/
 │   ├── integration/
 │   ├── concurrency/
 │   └── stress/
 ├── prometheus/prometheus.yml
 ├── grafana/
-│   ├── dashboards/rate_limiter.json
-│   └── provisioning/
 ├── Dockerfile
 ├── docker-compose.yml
-├── requirements.txt
-├── pytest.ini
-├── .env.example
-└── README.md
+└── requirements.txt
 ```
 
 ---
 
 ## Algorithms
 
-| Algorithm | Description | Best For |
+| Algorithm | Storage | Best For |
 |---|---|---|
-| **Fixed Window** | Counter resets at fixed intervals | Simple, low-overhead APIs |
-| **Sliding Window Log** | Sorted-set of timestamps, no boundary bursts | Strict per-second limits |
-| **Token Bucket** | Tokens refill at a steady rate; burst allowed | APIs that tolerate short bursts |
+| **Fixed Window** | Redis `HASH` key + TTL | Simple, low-overhead APIs |
+| **Sliding Window Log** | Redis `ZSET` of timestamps | Strict per-second limits, no boundary bursts |
+| **Token Bucket** | Redis `HASH` (tokens + last_refill) | APIs that tolerate short bursts |
 
-Select the algorithm globally via `DEFAULT_ALGORITHM` in `.env`, or per-config via the API.
+All three use **atomic Lua scripts** executed via `EVALSHA` — no race conditions, no WATCH/MULTI/EXEC overhead.
 
 ---
 
-## API Documentation
+## Running Locally
 
-### POST `/rate-limit/check`
-Check whether an identifier has quota remaining.
+### Backend (no Docker)
+
+```bash
+cd rate-limiter
+
+# Option A: in-memory (no Redis needed)
+pip install -r requirements.txt
+STORAGE_BACKEND=memory uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Option B: with Redis
+brew install redis && brew services start redis
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev        # → http://localhost:3000
+```
+
+On the Login page set **Backend URL** to `http://localhost:8000` and **Admin Key** to `change-me-in-production`.
+
+### Full stack with Docker
+
+```bash
+cp .env.example .env   # set ADMIN_API_KEY at minimum
+docker compose up --build
+```
+
+| Service | URL |
+|---|---|
+| Dashboard | http://localhost:3000 |
+| API | http://localhost:8000 |
+| Swagger | http://localhost:8000/docs |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3001 (admin/admin) |
+
+---
+
+## API Reference
+
+### `POST /rate-limit/check`
 
 ```bash
 curl -X POST http://localhost:8000/rate-limit/check \
@@ -134,12 +213,11 @@ curl -X POST http://localhost:8000/rate-limit/check \
   }'
 ```
 
-**200 OK (allowed):**
+**200 Allowed:**
 ```json
 {
   "allowed": true,
   "identifier": "user_42",
-  "identifier_type": "user_id",
   "remaining": 74,
   "limit": 100,
   "reset_after": 42,
@@ -147,51 +225,31 @@ curl -X POST http://localhost:8000/rate-limit/check \
 }
 ```
 
-**429 Too Many Requests:**
+**429 Rate Limited:**
 ```json
-{
-  "message": "Rate limit exceeded",
-  "retry_after": 25
-}
+{ "message": "Rate limit exceeded", "retry_after": 25 }
 ```
-Headers: `Retry-After: 25`, `X-RateLimit-Limit: 100`, `X-RateLimit-Remaining: 0`
+Response headers: `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`
 
----
+### Config CRUD (requires `X-Admin-Key`)
 
-### POST `/config` — Create a rate limit rule
-Requires `X-Admin-Key` header.
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/config` | Create a rule |
+| `GET` | `/config` | List all rules |
+| `GET` | `/config/{id}` | Get single rule |
+| `PUT` | `/config/{id}` | Update (hot-reload, no restart) |
+| `DELETE` | `/config/{id}` | Delete rule |
+| `GET` | `/health` | Health + uptime + Redis status |
+| `GET` | `/metrics` | Prometheus metrics (text/plain) |
 
-```bash
-curl -X POST http://localhost:8000/config \
-  -H "X-Admin-Key: your-admin-key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "identifier_type": "api_key",
-    "identifier": "*",
-    "algorithm": "token_bucket",
-    "limit": 1000,
-    "window_seconds": 60,
-    "burst_capacity": 200,
-    "refill_rate": 16.67,
-    "user_tier": "premium",
-    "enabled": true
-  }'
-```
-
-### GET `/config` — List all configs
-### GET `/config/{id}` — Get single config
-### PUT `/config/{id}` — Update (hot-reload, no restart)
-### DELETE `/config/{id}` — Delete config
-### GET `/health` — Health check
-### GET `/metrics` — Prometheus metrics (text/plain)
-
-Full interactive docs at: `http://localhost:8000/docs`
+Full interactive docs: `http://localhost:8000/docs`
 
 ---
 
 ## User Tiers
 
-| Tier | Default Limit | Override |
+| Tier | Default Limit | Env Override |
 |---|---|---|
 | `free` | 100 req/min | `FREE_TIER_LIMIT` |
 | `premium` | 1000 req/min | `PREMIUM_TIER_LIMIT` |
@@ -199,84 +257,42 @@ Full interactive docs at: `http://localhost:8000/docs`
 
 ---
 
-## Setup Instructions
-
-### Local Development (in-memory backend)
-
-```bash
-git clone https://github.com/shraddha-999/rate-limiter.git
-cd rate-limiter
-
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-cp .env.example .env
-# Set STORAGE_BACKEND=memory for local dev
-
-uvicorn app.main:app --reload
-```
-
-### Docker (full stack)
-
-```bash
-cp .env.example .env
-# Edit .env — at minimum set ADMIN_API_KEY
-
-docker compose up --build
-```
-
-| Service | URL |
-|---|---|
-| API | http://localhost:8000 |
-| Swagger | http://localhost:8000/docs |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3000 (admin/admin) |
-
----
-
 ## Running Tests
 
 ```bash
-# All tests
-pytest
-
-# Skip stress tests (faster CI)
-pytest -m "not stress"
-
-# Unit tests only
-pytest tests/unit/
-
-# With coverage report
-pytest --cov=app --cov-report=html
-open htmlcov/index.html
+pytest                          # all tests
+pytest -m "not stress"          # skip stress tests (fast CI)
+pytest tests/unit/              # unit only
+pytest --cov=app --cov-report=html && open htmlcov/index.html
 ```
+
+---
+
+## Deploying (Free Tier)
+
+| Service | Platform | Notes |
+|---|---|---|
+| Frontend | [Vercel](https://vercel.com) | Root dir: `frontend/`, auto-detects Vite |
+| Backend | [Render](https://render.com) | Start cmd: `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Redis | [Upstash](https://upstash.com) | Free 10k req/day, copy `REDIS_URL` to Render env vars |
+
+Set `VITE_API_URL=https://your-backend.onrender.com` in Vercel environment variables.
 
 ---
 
 ## Design Decisions
 
 **Why Lua scripts for Redis?**
-All three algorithms perform a read-modify-write cycle. Without atomicity, concurrent requests can race and allow more requests than the limit. Lua scripts run atomically in Redis — no WATCH/MULTI/EXEC needed, and no round-trip overhead.
+All algorithms do read-modify-write. Without atomicity, concurrent requests race and exceed the limit. Lua scripts run atomically in Redis — no WATCH/MULTI/EXEC, no extra round trips.
 
 **Why the Repository Pattern?**
-It decouples algorithms and services from Redis. The in-memory backend lets tests run at full speed without a Redis instance, and lets you swap storage with a one-line config change.
+Decouples algorithms from Redis. The in-memory backend lets tests run at full speed without a Redis instance and lets you swap storage with a single env var.
 
-**Why Sliding Window over Fixed Window by default?**
-Fixed Window has the "double-spend" problem — a client can make 2× the limit by timing requests around window boundaries. Sliding Window eliminates this at the cost of O(n) memory per key (bounded by the request limit).
+**Why Sliding Window over Fixed Window as default?**
+Fixed Window has the "boundary burst" problem — clients can send 2× the limit by timing requests around window resets. Sliding Window eliminates this at the cost of O(n) memory per key (bounded by the limit).
 
 **Why asyncio throughout?**
-FastAPI is async-native. Using async Redis calls means the event loop is never blocked — a single worker can handle thousands of in-flight rate limit checks concurrently.
+FastAPI is async-native. Async Redis calls never block the event loop — a single worker handles thousands of concurrent rate limit checks.
 
 **Hot-reload configuration**
-Config updates are stored in Redis/memory. `PUT /config/{id}` writes immediately; the next request that hits `RateLimitService._resolve_config` reads the new value without any restart.
-
----
-
-## Future Improvements
-
-- **Per-region limits** — route to region-specific Redis clusters based on `X-Region` header
-- **GraphQL API** — expose config management as a GraphQL schema
-- **WebSocket live dashboard** — real-time blocked/allowed stream
-- **gRPC interface** — for service-to-service rate limit checks with lower latency
-- **Distributed counters** — Redis Cluster support with consistent hashing
-- **ML-based adaptive limits** — dynamically adjust limits based on historical traffic patterns
+`PUT /config/{id}` writes to Redis immediately. The next request to `RateLimitService._resolve_config` picks up the new rule with no restart needed.
